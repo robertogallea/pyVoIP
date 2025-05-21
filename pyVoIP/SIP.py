@@ -710,8 +710,10 @@ class SIPMessage:
                         or attribute == "sendonly"
                         or attribute == "inactive"
                     ):
-                        self.body["a"]["transmit_type"] = (
-                            pyVoIP.RTP.TransmitType(attribute)
+                        self.body["a"][
+                            "transmit_type"
+                        ] = pyVoIP.RTP.TransmitType(
+                            attribute
                         )  # noqa: E501
             else:
                 self.body[header] = data
@@ -746,7 +748,7 @@ class SIPMessage:
             body_raw = body.split(b"\r\n")
             for x in body_raw:
                 i = str(x, "utf8").split("=")
-                if i != [""]:
+                if (i != [""]) & (len(i) == 2):
                     handle(i[0], i[1])
 
     def parseSIPResponse(self, data: bytes) -> None:
@@ -944,6 +946,14 @@ class SIPClient:
             return
         elif message.method == "CANCEL":
             # TODO: If callCallback is None, the call doesn't exist, 481
+            self.callCallback(message)  # type: ignore
+            response = self.gen_ok(message)
+            self.out.sendto(response.encode("utf8"), (self.server, self.port))
+        elif message.method == "OPTIONS":
+            self.callCallback(message)  # type: ignore
+            response = self.gen_ok(message)
+            self.out.sendto(response.encode("utf8"), (self.server, self.port))
+        elif message.method == "NOTIFY":
             self.callCallback(message)  # type: ignore
             response = self.gen_ok(message)
             self.out.sendto(response.encode("utf8"), (self.server, self.port))
@@ -1635,14 +1645,6 @@ class SIPClient:
                 + f'"{realm}",nonce="{nonce}",uri="sip:{self.server};'
                 + f'transport=UDP",response="{str(authhash, "utf8")}",'
                 + "algorithm=MD5\r\n"
-            )
-
-            hexindex = (
-                -5
-            )  # increment the hex digit at this position to get a slightly different branch id
-            hexdigit = (int(branch[hexindex], 16) + 1) & 15
-            branch = (
-                branch[0:hexindex] + f"{hexdigit:x}" + branch[hexindex + 1 :]
             )
 
             invite = self.gen_invite(
