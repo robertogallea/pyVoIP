@@ -40,6 +40,7 @@ class CallState(Enum):
     RINGING = "RINGING"
     ANSWERED = "ANSWERED"
     ENDED = "ENDED"
+    CANCELLED = "CANCELLED"
 
 
 class VoIPCall:
@@ -425,12 +426,14 @@ class VoIPCall:
             del self.phone.calls[self.request.headers["Call-ID"]]
 
     def bye(self) -> None:
-        if self.state == CallState.ANSWERED:
-            for x in self.RTPClients:
-                x.stop()
-            self.state = CallState.ENDED
-        if self.request.headers["Call-ID"] in self.phone.calls:
-            del self.phone.calls[self.request.headers["Call-ID"]]
+    if self.state == CallState.ANSWERED:
+        for x in self.RTPClients:
+            x.stop()
+        self.state = CallState.ENDED
+    elif self.state == CallState.RINGING:
+        self.state = CallState.CANCELLED
+    if self.request.headers["Call-ID"] in self.phone.calls:
+        del self.phone.calls[self.request.headers["Call-ID"]]
 
     def writeAudio(self, data: bytes) -> None:
         warnings.warn(
@@ -525,7 +528,7 @@ class VoIPPhone:
             # debug("This is a message")
             if request.method == "INVITE":
                 self._callback_MSG_Invite(request)
-            elif request.method == "BYE":
+            elif request.method == "BYE" or request.method == "CANCEL":
                 self._callback_MSG_Bye(request)
         else:
             if request.status == SIP.SIPStatus.OK:
